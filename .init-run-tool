@@ -1,0 +1,4 @@
+{
+    "command": "PORT=<port> BROWSER=none npm start",
+    "working_directory": "/home/kavia/workspace/code-generation/kollywood-quizmaster-37441-ce4b3476/kollywood_quizmaster"
+}
