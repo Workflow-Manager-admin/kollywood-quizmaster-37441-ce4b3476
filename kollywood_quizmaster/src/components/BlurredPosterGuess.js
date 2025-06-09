@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { searchMovies, getPosterUrl, getMovieDetails } from "../tmdbService";
-
+import { getPosterUrl } from "../tmdbService";
+import { pickLittleHardMovies } from "../littleHardKollywoodMovies";
 /**
  * BlurredPosterGuess Component
  * 
@@ -17,48 +17,34 @@ function BlurredPosterGuess({ numQuestions = 10, onEnd }) {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Helper to get Kollywood movies (Tamil, popularity)
-  async function fetchKollywoodMovies() {
-    let tmdbMovies = [];
-    // Try multiple pages for diversity
-    for (let page = 1; page <= 7; page++) {
-      // "with_original_language=ta" for Tamil
-      const url = `https://api.themoviedb.org/3/discover/movie?api_key=5bc67d3b06aecbd18121a3cbbc16eb59&language=en-US&sort_by=popularity.desc&with_original_language=ta&page=${page}`;
-      const resp = await fetch(url);
-      const data = await resp.json();
-      tmdbMovies.push(...data.results.filter((m) => m.poster_path && m.title && m.overview));
-    }
-    // Remove duplicates and shuffle
-    tmdbMovies = tmdbMovies.filter(
-      (m, i, arr) => arr.findIndex(x => x.id === m.id) === i
-    ).sort(() => 0.5 - Math.random());
-    return tmdbMovies.slice(0, numQuestions);
-  }
-
-  // Picks clues for each movie (overview, release year, top billed actor)
+  // Use hand-picked challenging Kollywood movies instead of TMDB random API
   async function buildQuestions() {
-    const arr = await fetchKollywoodMovies();
-    // Get one extra clue per movie by fetching movie credits
-    const qArr = await Promise.all(arr.map(async (movie) => {
-      let topActor = "";
-      try {
-        const url = `https://api.themoviedb.org/3/movie/${movie.id}/credits?api_key=5bc67d3b06aecbd18121a3cbbc16eb59`;
-        const resp = await fetch(url);
-        const data = await resp.json();
-        if (data && data.cast && data.cast.length)
-          topActor = data.cast[0].name;
-      } catch (e) { topActor = ""; }
-      return {
-        id: movie.id,
-        answer: movie.title,
-        poster: movie.poster_path,
-        clues: [
-          `Overview: ${movie.overview.slice(0, 90)}...`,
-          `Year: ${movie.release_date ? movie.release_date.slice(0, 4) : "Unknown"}`,
-          topActor ? `Top Actor: ${topActor}` : "",
-        ].filter(Boolean)
-      };
-    }));
+    const arr = pickLittleHardMovies(numQuestions);
+    // Optionally fetch top actor name as clue if available on TMDB
+    const qArr = await Promise.all(
+      arr.map(async (movie) => {
+        let topActor = "";
+        try {
+          const url = `https://api.themoviedb.org/3/movie/${movie.id}/credits?api_key=5bc67d3b06aecbd18121a3cbbc16eb59`;
+          const resp = await fetch(url);
+          const data = await resp.json();
+          if (data && data.cast && data.cast.length)
+            topActor = data.cast[0].name;
+        } catch (e) { topActor = ""; }
+        return {
+          id: movie.id,
+          answer: movie.title,
+          poster: movie.poster_path,
+          clues: [
+            movie.sample_clue
+              ? `Clue: ${movie.sample_clue}`
+              : undefined,
+            movie.year ? `Year: ${movie.year}` : undefined,
+            topActor ? `Top Actor: ${topActor}` : "",
+          ].filter(Boolean)
+        };
+      })
+    );
     setQuestions(qArr);
     setLoading(false);
   }

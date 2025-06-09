@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getPosterUrl } from "../tmdbService";
+import { pickLittleHardMovies } from "../littleHardKollywoodMovies";
 
 /**
  * SpinTheWheel Component
@@ -71,10 +72,26 @@ function SpinTheWheel({ numRounds = 7, onEnd }) {
       setSpun(true);
       // Pre-fetch a real answer (to reveal if needed)
       setLoading(true);
-      const url = `https://api.themoviedb.org/3/discover/movie?api_key=5bc67d3b06aecbd18121a3cbbc16eb59&with_original_language=ta&sort_by=popularity.desc&primary_release_year=${yearPick}&with_cast=${encodeURIComponent(actorPick)},${encodeURIComponent(actressPick)}`;
-      const resp = await fetch(url);
-      const data = await resp.json();
-      const real = data.results && data.results.length > 0 ? data.results[0] : null;
+      // Only select movies from little hard Kollywood set
+      const hardMovies = pickLittleHardMovies(8); // small pool for spin
+      // Try to find a movie within the list that matches all criteria
+      let real = null;
+      for (let m of hardMovies) {
+        try {
+          const url = `https://api.themoviedb.org/3/movie/${m.id}/credits?api_key=5bc67d3b06aecbd18121a3cbbc16eb59`;
+          const resp = await fetch(url);
+          const data = await resp.json();
+          const castNames = (data.cast || []).map(c => c.name.trim().toLowerCase());
+          if (
+            castNames.includes(actorPick.trim().toLowerCase()) &&
+            castNames.includes(actressPick.trim().toLowerCase()) &&
+            (m.year === yearPick || m.year === parseInt(yearPick))
+          ) {
+            real = m;
+            break;
+          }
+        } catch (e) { /* skip */ }
+      }
       setRealAnswer(real);
       setLoading(false);
     }, 1300 + Math.random() * 1200);
@@ -83,18 +100,18 @@ function SpinTheWheel({ numRounds = 7, onEnd }) {
   async function handleGuess() {
     setResult(""); // reset
     if (!guess.trim()) return;
-    // Query for movie that matches all criteria
+    // Validate against little hard Kollywood movies only
     setLoading(true);
-    // use all 3 as filters in TMDB, fallback for "includes" in title
-    const url = `https://api.themoviedb.org/3/search/movie?api_key=5bc67d3b06aecbd18121a3cbbc16eb59&query=${encodeURIComponent(guess)}&primary_release_year=${year}&with_original_language=ta`;
-    const resp = await fetch(url);
-    const data = await resp.json();
+    const hardMovies = pickLittleHardMovies(10);
     let found = false;
     let matchedMovie = null;
-    if (data.results && data.results.length) {
-      // Check if cast matches
-      for (let m of data.results) {
-        // Check if actor/actress matches (requires separate credits API call)
+    for (let m of hardMovies) {
+      if (
+        m.title.trim().toLowerCase() === guess.trim().toLowerCase() &&
+        ((m.year && m.year.toString() === year) || (m.year && m.year === parseInt(year))) &&
+        realAnswer // ensure it matches the precomputed real answer or allow actor/actress to also fit
+      ) {
+        // double-check cast for strictness
         try {
           const crUrl = `https://api.themoviedb.org/3/movie/${m.id}/credits?api_key=5bc67d3b06aecbd18121a3cbbc16eb59`;
           const crResp = await fetch(crUrl);

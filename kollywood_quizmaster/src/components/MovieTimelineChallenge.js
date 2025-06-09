@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getPosterUrl } from "../tmdbService";
+import { pickLittleHardMovies } from "../littleHardKollywoodMovies";
 
 /**
  * MovieTimelineChallenge Component
@@ -17,41 +18,26 @@ function MovieTimelineChallenge({ rounds = 3, moviesPerRound = 5, onEnd }) {
   const [finished, setFinished] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  async function fetchRandomKollywoodMovies(num) {
-    let movies = [];
-    for (let page = 1; movies.length < num; page++) {
-      const url = `https://api.themoviedb.org/3/discover/movie?api_key=5bc67d3b06aecbd18121a3cbbc16eb59&language=en-US&sort_by=popularity.desc&with_original_language=ta&page=${page}`;
-      const resp = await fetch(url);
-      const data = await resp.json();
-      movies.push(
-        ...data.results.filter((m) => m.poster_path && m.title && m.release_date)
-      );
-    }
-    // Remove duplicates and pick num
-    movies = movies.filter(
-      (m, i, arr) => arr.findIndex(x => x.id === m.id) === i
-    ).sort(() => 0.5 - Math.random());
-    return movies.slice(0, num);
-  }
-
+  // Use only little hard Kollywood movies for all timeline challenges
   async function buildRounds() {
     let roundsArr = [];
     for (let r = 0; r < rounds; r++) {
-      const arr = await fetchRandomKollywoodMovies(moviesPerRound + 2); // +2 to reduce risk of missing dates
-      // Remove ones without year, keep first moviesPerRound
+      // Pick a unique set for each round (extra to avoid rare missing data)
+      const arr = pickLittleHardMovies(moviesPerRound + 2);
+      // For timeline logic, year must be available!
       const arr2 = arr
-        .filter((m) => m.release_date && m.release_date.length >= 4)
+        .filter((m) => m.year)
         .slice(0, moviesPerRound)
         .map((m) => ({
           id: m.id,
           title: m.title,
           poster: m.poster_path,
-          year: parseInt(m.release_date.slice(0, 4)),
+          year: m.year,
         }));
       roundsArr.push(arr2);
     }
     setQuizRounds(roundsArr);
-    setUserOrder([...(quizRounds[0] || [])]);
+    setUserOrder([...(roundsArr[0] || [])]);
     setLoading(false);
   }
 
@@ -77,7 +63,7 @@ function MovieTimelineChallenge({ rounds = 3, moviesPerRound = 5, onEnd }) {
     setChecking(true);
     const correct = [...userOrder].every((m, i, arr) => {
       if (!i) return true;
-      return arr[i-1].year <= m.year;
+      return arr[i - 1].year <= m.year;
     });
     setResult(correct ? userOrder.map(() => true) : getOrderFeedback());
     if (correct) setScore((s) => s + 1);
@@ -151,7 +137,7 @@ function MovieTimelineChallenge({ rounds = 3, moviesPerRound = 5, onEnd }) {
       )}
       {finished && (
         <div style={{ marginTop: 19, color: "#ffeb5c", fontWeight: 700 }}>
-          Challenge Complete! <br/>
+          Challenge Complete! <br />
           Score: {score} / {rounds}
         </div>
       )}
@@ -165,7 +151,7 @@ function MovieTimelineChallenge({ rounds = 3, moviesPerRound = 5, onEnd }) {
         <div style={{
           height: "100%",
           background: "#ff05ff",
-          width: `${((currentRound+1) / rounds) * 100}%`
+          width: `${((currentRound + 1) / rounds) * 100}%`
         }} />
       </div>
     </div>

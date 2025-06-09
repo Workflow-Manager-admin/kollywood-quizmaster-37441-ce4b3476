@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getPosterUrl } from "../tmdbService";
+import { pickLittleHardMovies } from "../littleHardKollywoodMovies";
 
 // Sample Bingo categories (customize as needed)
 const CATEGORIES = [
@@ -21,27 +22,10 @@ function MovieBingo({ numQuestions = 5, onEnd }) {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // For demo, we can choose a few well-known movies for Kollywood
+  // Use hand-picked "little hard" Kollywood movies for each category
   async function fetchSampleMoviesByCategories() {
-    const catMovies = [];
-    // Category 1: National Award winner (try big winners - e.g., "Kanchivaram", "Pariyerum Perumal", "Kutty" etc.)
-    const nationalAward = await fetchTMDBSearch("Kanchivaram"); // Sure winner
-    // Category 2: Romantic
-    const romance = await fetchGenreMovie(10749); // TMDB "Romance" genre
-    // Category 3: Comedy
-    const comedy = await fetchGenreMovie(35); // "Comedy"
-    // Category 4: After 2018
-    const after2018 = await fetchYearMovie("2019-01-01");
-    // Category 5: Rajinikanth
-    const rajini = await fetchTMDBSearch("Rajinikanth");
-    // Now, shuffle, one sample for each
-    catMovies.push(
-      pickOne(nationalAward),
-      pickOne(romance),
-      pickOne(comedy),
-      pickOne(after2018),
-      pickOne(rajini)
-    );
+    // Instead of genre filtering, just pick 5 challenging movies.
+    const catMovies = pickLittleHardMovies(categories.length);
     setMovies(catMovies);
     setLoading(false);
   }

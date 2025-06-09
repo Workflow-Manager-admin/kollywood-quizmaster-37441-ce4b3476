@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getMovieDetails } from "../tmdbService";
-
+import { pickLittleHardMovies } from "../littleHardKollywoodMovies";
 /**
  * CharacterMovieMatch Component
  * Players match Kollywood characters (or main actors) to the correct movies by drag and drop.
@@ -16,37 +15,29 @@ function CharacterMovieMatch({ numItems = 7, onEnd }) {
   const [loading, setLoading] = useState(true);
 
   async function fetchQuizItems() {
-    // fetch Kollywood movies with casts
-    let tmdbMovies = [];
-    let tries = 0;
-    for (let page = 1; tmdbMovies.length < numItems && tries < 10; page++, tries++) {
-      const url = `https://api.themoviedb.org/3/discover/movie?api_key=5bc67d3b06aecbd18121a3cbbc16eb59&language=en-US&sort_by=popularity.desc&with_original_language=ta&page=${page}`;
-      const resp = await fetch(url);
-      const data = await resp.json();
-      tmdbMovies.push(...data.results.filter((m) => m.poster_path && m.title && m.id));
-    }
-    // Remove duplicates
-    tmdbMovies = tmdbMovies.filter(
-      (m, i, arr) => arr.findIndex(x => x.id === m.id) === i
-    ).slice(0, numItems);
-
+    // Use little hard hand-picked Kollywood movies
+    const hardMovies = pickLittleHardMovies(numItems);
     // For each, get a character (usually actor's name, else role)
     const full = await Promise.all(
-      tmdbMovies.map(async (m) => {
-        const url = `https://api.themoviedb.org/3/movie/${m.id}/credits?api_key=5bc67d3b06aecbd18121a3cbbc16eb59`;
-        const resp = await fetch(url);
-        const data = await resp.json();
-        if (data && data.cast && data.cast.length) {
-          // Pick a random cast
-          const idx = Math.floor(Math.random() * Math.min(4, data.cast.length));
-          const cast = data.cast[idx];
-          return {
-            movieId: m.id,
-            poster: m.poster_path,
-            title: m.title,
-            character: cast.character || cast.name,
-            actor: cast.name
-          };
+      hardMovies.map(async (m) => {
+        try {
+          const url = `https://api.themoviedb.org/3/movie/${m.id}/credits?api_key=5bc67d3b06aecbd18121a3cbbc16eb59`;
+          const resp = await fetch(url);
+          const data = await resp.json();
+          if (data && data.cast && data.cast.length) {
+            // Pick a random cast
+            const idx = Math.floor(Math.random() * Math.min(4, data.cast.length));
+            const cast = data.cast[idx];
+            return {
+              movieId: m.id,
+              poster: m.poster_path,
+              title: m.title,
+              character: cast.character || cast.name,
+              actor: cast.name
+            };
+          }
+        } catch (e) {
+          // skip
         }
         return null;
       })
